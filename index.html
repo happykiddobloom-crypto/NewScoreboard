@@ -32,6 +32,7 @@ html,body{height:100%;margin:0;background:#111;color:var(--ink);font-family:"Tre
 .panel .row{display:flex;gap:8px}
 .panel button,.overlay button{flex:1;border:0;border-radius:12px;padding:12px;font-size:17px;font-weight:700;cursor:pointer;background:#111;color:#fff}
 .panel button.alt{background:#e5e5e5;color:#111}.panel{max-height:calc(100% - 16px);overflow-y:auto;width:min(92%,360px)}.panel .stick{position:sticky;bottom:0;background:#fff;padding-top:8px}.mid .rst{width:auto;padding:0 10px;font-size:13px;font-weight:700}.panel .sw button{flex:1;min-width:0;height:30px;padding:0;border-radius:8px;border:3px solid transparent}.panel .sw button.sel{border-color:#111}.panel input[type=color]{padding:2px;height:40px;width:100%;border:2px solid #ccc;border-radius:10px;background:none;cursor:pointer}@media (max-height:520px){.panel{gap:6px;padding:12px}.panel .emo{padding:4px;font-size:18px}.panel button{padding:8px}}
+.toast{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);z-index:30;background:#fff;color:#111;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:700;max-width:90%;text-align:center;display:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}.toast.on{display:block}
 @media (orientation:portrait){
  #app{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
  .mid{top:50%;transform:translate(-50%,-50%)}
@@ -57,6 +58,7 @@ html,body{height:100%;margin:0;background:#111;color:var(--ink);font-family:"Tre
  </div>
  <button class="target" id="target" aria-label="Change target score">Target: <span id="tv">100</span></button>
 
+ <div class="toast" id="toast"></div>
  <div class="overlay" id="win"><h2 id="wt"></h2><div style="display:flex;gap:10px;width:min(90%,360px)"><button id="next">Next round</button></div></div>
  <div class="overlay" id="set"><div class="panel">
  <label for="rt">Target score (0 = no limit)</label><input type="number" id="rt" min="0" inputmode="numeric">
@@ -70,6 +72,7 @@ html,body{height:100%;margin:0;background:#111;color:var(--ink);font-family:"Tre
  <label><input type="checkbox" id="rv" style="width:auto"> Announce score (awaaz)</label>
  <label><input type="checkbox" id="ra" style="width:auto"> Airport style (chime + slow)</label>
  <label for="rvs">Voice</label><select id="rvs" style="font-size:16px;padding:10px;border:2px solid #ccc;border-radius:10px;width:100%"></select>
+ <div class="row"><button class="alt" id="rtest">Test voice 🔊</button></div>
  <label><input type="checkbox" id="rg" style="width:auto"> 3D globe football (new style)</label>
  <div class="row"><button class="alt" id="rz">Reset scores</button><button class="alt" id="rq">Reset sets</button></div>
  <div class="row stick"><button class="alt" id="rd">Default</button><button id="rx">Done</button></div>
@@ -94,8 +97,9 @@ var voices=[];
 function loadVoices(){if(!window.speechSynthesis)return;voices=speechSynthesis.getVoices().filter(function(v){return /^en/i.test(v.lang)});
  var sel=$("rvs");if(!sel)return;sel.innerHTML="";var a=document.createElement("option");a.value="";a.textContent="Auto (girl voice)";sel.appendChild(a);
  voices.forEach(function(v){var o=document.createElement("option");o.value=v.name;o.textContent=v.name+" ("+v.lang+")";sel.appendChild(o)});sel.value=S.voice||""}
-function pickVoice(){if(S.voice){for(var i=0;i<voices.length;i++)if(voices[i].name===S.voice)return voices[i]}
- var best=null;for(var j=0;j<voices.length;j++){var v=voices[j];if(FEM.test(v.name)&&!/male$/i.test(v.name.trim().replace(/female/i,"")+"")){if(/natural|neural|online/i.test(v.name))return v;if(!best||/^en-US/i.test(v.lang))best=best&&/^en-US/i.test(best.lang)?best:v}}
+function pickVoice(){var pool=voices;if(navigator.onLine===false){var l=voices.filter(function(v){return v.localService});if(l.length)pool=l}
+ if(S.voice){for(var i=0;i<pool.length;i++)if(pool[i].name===S.voice)return pool[i]}
+ var best=null;for(var j=0;j<pool.length;j++){var v=pool[j];if(!FEM.test(v.name))continue;if(/natural|neural|online/i.test(v.name))return v;if(!best||(/^en-US/i.test(v.lang)&&!/^en-US/i.test(best.lang)))best=v}
  return best}
 if(window.speechSynthesis){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
 var ac=null,st=null;
@@ -103,9 +107,19 @@ function chime(){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)(
  [[659.25,0],[523.25,.45]].forEach(function(n){var o=ac.createOscillator(),g=ac.createGain(),s0=t+n[1];o.type="sine";o.frequency.value=n[0];
   g.gain.setValueAtTime(0,s0);g.gain.linearRampToValueAtTime(.35,s0+.02);g.gain.exponentialRampToValueAtTime(.001,s0+.9);
   o.connect(g);g.connect(ac.destination);o.start(s0);o.stop(s0+1)})}catch(e){}}
-function speak(t){try{var u=new SpeechSynthesisUtterance(t);u.lang="en-US";var v=pickVoice();if(v){u.voice=v;u.lang=v.lang}
- if(S.air){u.rate=.82;u.pitch=1;u.volume=1}else{u.rate=.95;u.pitch=1.2;u.volume=.9}speechSynthesis.speak(u)}catch(e){}}
-function say(t){if(!S.say||!window.speechSynthesis)return;try{speechSynthesis.cancel();clearTimeout(st);
+var tt=null,tok=0,warned=false,unlocked=false;
+function toast(m){var e=$("toast");e.textContent=m;e.classList.add("on");clearTimeout(tt);tt=setTimeout(function(){e.classList.remove("on")},4500)}
+function unlock(){if(unlocked)return;unlocked=true;try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state==="suspended")ac.resume()}catch(e){}
+ try{if(window.speechSynthesis){var u=new SpeechSynthesisUtterance(" ");u.volume=0;speechSynthesis.speak(u)}}catch(e){}}
+document.addEventListener("click",unlock,true);document.addEventListener("touchend",unlock,true);
+function speak(t){try{var u=new SpeechSynthesisUtterance(t),my=++tok,started=false;u.lang="en-US";var v=pickVoice();if(v){u.voice=v;u.lang=v.lang}
+ if(S.air){u.rate=.82;u.pitch=1;u.volume=1}else{u.rate=.95;u.pitch=1.2;u.volume=.9}
+ u.onstart=function(){started=true};
+ u.onerror=function(e){if(e&&e.error&&e.error!=="canceled"&&e.error!=="interrupted")toast("Voice error: "+e.error)};
+ setTimeout(function(){if(my===tok&&!started)toast("Voice start nahi hui. Phone ki Text-to-speech setting/voice check karo, ya app ko Chrome mein kholo.")},3500);
+ speechSynthesis.speak(u)}catch(e){toast("Voice error")}}
+function say(t){if(!S.say)return;if(!window.speechSynthesis){if(!warned){warned=true;toast("Is app/browser mein voice support nahi hai. Chrome mein kholo.")}if(S.air)chime();return}
+ try{speechSynthesis.cancel();clearTimeout(st);
  if(S.air){chime();st=setTimeout(function(){speak(t)},1100)}else{speak(t)}}catch(e){}}
 function ann(w){var sc=S.na+", "+S.a+". "+S.nb+", "+S.b+".";
  if(S.air)say(w?w+" has won the match. Final score. "+sc:sc);
@@ -144,6 +158,7 @@ $("pka").oninput=function(){S.ca=this.value;markSw();draw()};
 $("pkb").oninput=function(){S.cb=this.value;markSw();draw()};
 $("rvs").onchange=function(){S.voice=this.value;save();ann()};
 $("ra").onchange=function(){S.air=this.checked;save();ann()};
+$("rtest").onclick=function(){unlocked=true;ann()};
 $("rv").onchange=function(){S.say=this.checked;if(S.say)say("Announcements on")};
 $("gear").onclick=function(ev){ev.stopPropagation();syncSet();$("set").classList.add("on")};
 $("rs").oninput=function(){S.ss=+this.value;draw()};
