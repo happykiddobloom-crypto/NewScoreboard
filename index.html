@@ -31,7 +31,7 @@ html,body{height:100%;margin:0;background:#111;color:var(--ink);font-family:"Tre
 .panel input{font-size:20px;padding:10px;border:2px solid #ccc;border-radius:10px;width:100%}
 .panel .row{display:flex;gap:8px}
 .panel button,.overlay button{flex:1;border:0;border-radius:12px;padding:12px;font-size:17px;font-weight:700;cursor:pointer;background:#111;color:#fff}
-.panel button.alt{background:#e5e5e5;color:#111}
+.panel button.alt{background:#e5e5e5;color:#111}.panel{max-height:calc(100% - 16px);overflow-y:auto;width:min(92%,360px)}.panel .stick{position:sticky;bottom:0;background:#fff;padding-top:8px}.mid .rst{width:auto;padding:0 10px;font-size:13px;font-weight:700}@media (max-height:520px){.panel{gap:6px;padding:12px}.panel .emo{padding:4px;font-size:18px}.panel button{padding:8px}}
 @media (orientation:portrait){
  #app{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
  .mid{top:50%;transform:translate(-50%,-50%)}
@@ -53,7 +53,7 @@ html,body{height:100%;margin:0;background:#111;color:var(--ink);font-family:"Tre
  </div>
  <div class="mid">
   <div class="timer"><button id="play" aria-label="Start or pause">▶</button><span id="time">00:00</span><button id="reset" aria-label="Reset timer">↺</button><button id="gear" aria-label="Settings">⚙</button><button id="fs" aria-label="Full screen">⤢</button></div>
-  <div class="sets" id="sets">0 – 0</div>
+  <div style="display:flex;align-items:center;gap:8px"><div class="sets" id="sets">0 – 0</div><button class="rst" id="rst" aria-label="Reset scores">Reset</button></div>
  </div>
  <button class="target" id="target" aria-label="Change target score">Target: <span id="tv">100</span></button>
 
@@ -65,7 +65,8 @@ html,body{height:100%;margin:0;background:#111;color:var(--ink);font-family:"Tre
  <label for="rb">Icon size</label><input type="range" id="rb" min="0.5" max="2.5" step="0.05">
  <label>Icon</label><div class="row" id="emos"></div>
  <label><input type="checkbox" id="rc" style="width:auto"> Show crown for leader</label>
- <div class="row"><button class="alt" id="rd">Default</button><button id="rx">Done</button></div>
+ <div class="row"><button class="alt" id="rz">Reset scores</button><button class="alt" id="rq">Reset sets</button></div>
+ <div class="row stick"><button class="alt" id="rd">Default</button><button id="rx">Done</button></div>
 </div></div>
  <div class="overlay" id="dlg"><div class="panel"><label id="dl" for="di"></label><input id="di"><div class="row"><button class="alt" id="dc">Cancel</button><button id="ds">Save</button></div></div></div>
 </div>
@@ -114,6 +115,11 @@ $("rt").oninput=function(){var n=parseInt(this.value,10);if(n>=0){S.target=n;dra
 $("rc").onchange=function(){S.crown=this.checked;draw()};
 $("rd").onclick=function(){S.ss=1;S.ns=1;S.bs=1;S.icon="⚽";S.crown=true;syncSet();draw()};
 $("rx").onclick=function(){$("set").classList.remove("on")};
+function resetScores(){S.a=0;S.b=0;busy=false;$("win").classList.remove("on");draw()}
+var rtimer=null;
+$("rst").onclick=function(e){e.stopPropagation();var b=this;if(rtimer){clearTimeout(rtimer);rtimer=null;b.textContent="Reset";resetScores()}else{b.textContent="Sure?";rtimer=setTimeout(function(){rtimer=null;b.textContent="Reset"},3000)}};
+$("rz").onclick=resetScores;
+$("rq").onclick=function(){S.sa=0;S.sb=0;draw()};
 $("fs").onclick=function(ev){ev.stopPropagation();var d=document,el=d.documentElement;
  try{if(d.fullscreenElement){d.exitFullscreen()}else{var p=el.requestFullscreen?el.requestFullscreen():el.webkitRequestFullscreen&&el.webkitRequestFullscreen();
   if(p&&p.then)p.then(function(){try{screen.orientation.lock("landscape").catch(function(){})}catch(e){}}).catch(function(){})}}catch(e){}};
