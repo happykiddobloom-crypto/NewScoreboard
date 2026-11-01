@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scoreboard</title>
+<style>
+:root{--red:#d62828;--blue:#1d4ed8;--ink:#fff;--bar:rgba(0,0,0,.35);box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{height:100%;margin:0;background:#111;color:var(--ink);font-family:"Trebuchet MS",system-ui,Arial,sans-serif;overflow:hidden}
+#app{height:100%;display:grid;grid-template-columns:1fr 1fr;position:relative}
+.side{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation}
+.side.a{background:var(--red)}.side.b{background:var(--blue)}
+.name{font-size:calc(clamp(18px,4vw,34px)*var(--ns,1));font-weight:700;letter-spacing:.02em;margin-top:6px;max-width:80%;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score{font-size:calc(clamp(90px,28vw,300px)*var(--ss,1));font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.ball{position:relative;font-size:calc(clamp(24px,5vw,44px)*var(--bs,1))}.crown{position:absolute;top:-.8em;left:50%;transform:translateX(-50%) rotate(14deg);font-size:.75em;display:none}.crown.on{display:block}.panel input[type=range]{padding:0;border:0}.panel label{font-weight:700}.panel .emo{font-size:22px;padding:8px}.panel .emo.sel{outline:3px solid #111}
+.ico{position:absolute;width:44px;height:44px;border:0;border-radius:12px;background:var(--bar);color:#fff;font-size:20px;display:grid;place-items:center;cursor:pointer}
+.ico:focus-visible,.mid button:focus-visible,.panel button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.edit{top:10px;left:10px}.minus{bottom:10px;left:10px;font-size:26px}
+.b .edit{left:auto;right:10px}.b .minus{left:auto;right:10px}
+.mid{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:5;background:#fff;color:#111;border-radius:14px;padding:6px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.timer{display:flex;align-items:center;gap:6px;font-size:clamp(16px,3vw,24px);font-weight:700;font-variant-numeric:tabular-nums}
+.mid button{border:0;background:#eee;border-radius:8px;width:34px;height:34px;font-size:16px;cursor:pointer}
+.sets{font-size:clamp(18px,3.5vw,28px);font-weight:800}
+.target{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:5;background:#fff;color:#111;border:0;border-radius:12px;padding:8px 18px;font-size:clamp(18px,3.5vw,28px);font-weight:800;cursor:pointer}
+.overlay{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.75);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center}
+.overlay.on{display:flex}
+.overlay h2{font-size:clamp(28px,7vw,64px);margin:0}
+.panel{background:#fff;color:#111;border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px;width:min(92%,320px)}
+.panel input{font-size:20px;padding:10px;border:2px solid #ccc;border-radius:10px;width:100%}
+.panel .row{display:flex;gap:8px}
+.panel button,.overlay button{flex:1;border:0;border-radius:12px;padding:12px;font-size:17px;font-weight:700;cursor:pointer;background:#111;color:#fff}
+.panel button.alt{background:#e5e5e5;color:#111}
+@media (orientation:portrait){
+ #app{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+ .mid{top:50%;transform:translate(-50%,-50%)}
+ .target{bottom:auto;top:calc(50% + 58px)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+ <div class="side a" id="sa" role="button" tabindex="0" aria-label="Player 1 score plus one">
+  <button class="ico edit" data-edit="a" aria-label="Edit name">✎</button>
+  <div class="ball"><span class="crown" id="ca">👑</span><span class="bi">⚽</span></div><div class="name" id="na"></div><div class="score" id="ta">0</div>
+  <button class="ico minus" data-minus="a" aria-label="Minus one">−</button>
+ </div>
+ <div class="side b" id="sb" role="button" tabindex="0" aria-label="Player 2 score plus one">
+  <button class="ico edit" data-edit="b" aria-label="Edit name">✎</button>
+  <div class="ball"><span class="crown" id="cb">👑</span><span class="bi">⚽</span></div><div class="name" id="nb"></div><div class="score" id="tb">0</div>
+  <button class="ico minus" data-minus="b" aria-label="Minus one">−</button>
+ </div>
+ <div class="mid">
+  <div class="timer"><button id="play" aria-label="Start or pause">▶</button><span id="time">00:00</span><button id="reset" aria-label="Reset timer">↺</button><button id="gear" aria-label="Settings">⚙</button><button id="fs" aria-label="Full screen">⤢</button></div>
+  <div class="sets" id="sets">0 – 0</div>
+ </div>
+ <button class="target" id="target" aria-label="Change target score">Target: <span id="tv">100</span></button>
+
+ <div class="overlay" id="win"><h2 id="wt"></h2><div style="display:flex;gap:10px;width:min(90%,360px)"><button id="next">Next round</button></div></div>
+ <div class="overlay" id="set"><div class="panel">
+ <label for="rt">Target score (0 = no limit)</label><input type="number" id="rt" min="0" inputmode="numeric">
+ <label for="rs">Score size</label><input type="range" id="rs" min="0.5" max="1.3" step="0.05">
+ <label for="rn">Name size</label><input type="range" id="rn" min="0.5" max="2" step="0.05">
+ <label for="rb">Icon size</label><input type="range" id="rb" min="0.5" max="2.5" step="0.05">
+ <label>Icon</label><div class="row" id="emos"></div>
+ <label><input type="checkbox" id="rc" style="width:auto"> Show crown for leader</label>
+ <div class="row"><button class="alt" id="rd">Default</button><button id="rx">Done</button></div>
+</div></div>
+ <div class="overlay" id="dlg"><div class="panel"><label id="dl" for="di"></label><input id="di"><div class="row"><button class="alt" id="dc">Cancel</button><button id="ds">Save</button></div></div></div>
+</div>
+<script>
+var S={a:0,b:0,na:"Ronaldo",nb:"Messi",sa:0,sb:0,target:100,sec:0,ss:1,ns:1,bs:1,icon:"⚽",crown:true};
+try{var saved=JSON.parse(localStorage.getItem("sb1")||"null");if(saved)S=Object.assign(S,saved)}catch(e){}
+var running=false,iv=null,busy=false;
+function $(i){return document.getElementById(i)}
+function save(){try{localStorage.setItem("sb1",JSON.stringify(S))}catch(e){}}
+function fmt(s){var m=Math.floor(s/60),r=s%60;return(m<10?"0":"")+m+":"+(r<10?"0":"")+r}
+function applyView(){var r=document.documentElement.style;r.setProperty("--ss",S.ss);r.setProperty("--ns",S.ns);r.setProperty("--bs",S.bs);
+ document.querySelectorAll(".bi").forEach(function(e){e.textContent=S.icon});
+ $("ca").classList.toggle("on",S.crown&&S.a>S.b);$("cb").classList.toggle("on",S.crown&&S.b>S.a)}
+function draw(){applyView();$("ta").textContent=S.a;$("tb").textContent=S.b;$("na").textContent=S.na;$("nb").textContent=S.nb;
+ $("sets").textContent=S.sa+" – "+S.sb;$("tv").textContent=S.target>0?S.target:"Off";$("time").textContent=fmt(S.sec);$("play").textContent=running?"❚❚":"▶";save()}
+function add(k,d){if(busy)return;S[k]=Math.max(0,S[k]+d);draw();
+ if(d>0&&S.target>0&&S[k]>=S.target){busy=true;if(running)toggle();
+  if(k==="a")S.sa++;else S.sb++;draw();
+  $("wt").textContent=(k==="a"?S.na:S.nb)+" jeet gaya! 🏆";$("win").classList.add("on")}}
+$("next").onclick=function(){S.a=0;S.b=0;S.sec=0;busy=false;$("win").classList.remove("on");draw()};
+function toggle(){running=!running;if(running){iv=setInterval(function(){S.sec++;draw()},1000)}else{clearInterval(iv)}draw()}
+$("play").onclick=function(e){e.stopPropagation();toggle()};
+$("reset").onclick=function(e){e.stopPropagation();if(running)toggle();S.sec=0;draw()};
+["a","b"].forEach(function(k){var el=$("s"+k);
+ el.onclick=function(){add(k,1)};
+ el.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();add(k,1)}}});
+document.querySelectorAll("[data-minus]").forEach(function(b){b.onclick=function(e){e.stopPropagation();add(b.dataset.minus,-1)}});
+var mode=null;
+function ask(label,val,m){mode=m;$("dl").textContent=label;$("di").value=val;$("di").type=(m==="t")?"number":"text";$("dlg").classList.add("on");$("di").focus()}
+document.querySelectorAll("[data-edit]").forEach(function(b){b.onclick=function(e){e.stopPropagation();var k=b.dataset.edit;ask("Naam likhein",S["n"+k],"n"+k)}});
+$("target").onclick=function(){ask("Target score (jo pehle pohanche woh jeete)",S.target,"t")};
+$("dc").onclick=function(){$("dlg").classList.remove("on")};
+$("ds").onclick=function(){var v=$("di").value.trim();
+ if(mode==="t"){var n=parseInt(v,10);if(n>=0)S.target=n}else if(v){S[mode]=v.slice(0,20)}
+ $("dlg").classList.remove("on");draw()};
+$("di").onkeydown=function(e){if(e.key==="Enter")$("ds").click()};
+var EM=["⚽","🏀","🏏","🎾","🏐"];
+function syncSet(){$("rt").value=S.target;$("rs").value=S.ss;$("rn").value=S.ns;$("rb").value=S.bs;$("rc").checked=S.crown;
+ document.querySelectorAll(".emo").forEach(function(b){b.classList.toggle("sel",b.textContent===S.icon)})}
+EM.forEach(function(e){var b=document.createElement("button");b.className="alt emo";b.textContent=e;b.onclick=function(){S.icon=e;syncSet();draw()};$("emos").appendChild(b)});
+$("gear").onclick=function(ev){ev.stopPropagation();syncSet();$("set").classList.add("on")};
+$("rs").oninput=function(){S.ss=+this.value;draw()};
+$("rn").oninput=function(){S.ns=+this.value;draw()};
+$("rb").oninput=function(){S.bs=+this.value;draw()};
+$("rt").oninput=function(){var n=parseInt(this.value,10);if(n>=0){S.target=n;draw()}};
+$("rc").onchange=function(){S.crown=this.checked;draw()};
+$("rd").onclick=function(){S.ss=1;S.ns=1;S.bs=1;S.icon="⚽";S.crown=true;syncSet();draw()};
+$("rx").onclick=function(){$("set").classList.remove("on")};
+$("fs").onclick=function(ev){ev.stopPropagation();var d=document,el=d.documentElement;
+ try{if(d.fullscreenElement){d.exitFullscreen()}else{var p=el.requestFullscreen?el.requestFullscreen():el.webkitRequestFullscreen&&el.webkitRequestFullscreen();
+  if(p&&p.then)p.then(function(){try{screen.orientation.lock("landscape").catch(function(){})}catch(e){}}).catch(function(){})}}catch(e){}};
+draw();
+</script>
+</body>
+</html>
